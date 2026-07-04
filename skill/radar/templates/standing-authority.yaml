@@ -1,0 +1,73 @@
+# Default Radar standing authority profile.
+# This file is descriptive guidance for Radar runs; it is not itself an approval.
+
+profile: default
+operator: user
+version: 1.0.0
+
+read_only:
+  default_allowed: true
+  examples:
+    - Notes/wiki pages and local receipts
+    - Gmail/email search and readback where already authenticated
+    - Calendar readback where authenticated
+    - GitHub/repo status and logs where authenticated
+    - Billing/admin summaries where authenticated
+    - Travel confirmations and itinerary data where authenticated
+    - Service/cron/process status checks
+
+draft_only:
+  default_allowed: true
+  examples:
+    - email/message/social drafts
+    - meeting prep notes
+    - travel checklists
+    - finance/admin handoff checklists
+    - local status artifacts
+    - task packets and proposed commands
+
+requires_explicit_approval:
+  external_send:
+    - sending emails
+    - sending messages
+    - publishing social posts
+    - inviting people to meetings
+    - submitting forms
+  runtime_mutation:
+    - editing code/config
+    - restarting services
+    - creating/updating cron jobs
+    - mutating project tracking state
+  destructive:
+    - deleting data
+    - cancelling accounts/subscriptions
+    - irreversible account changes
+
+never_without_exact_action_specific_approval:
+  financial_or_legal:
+    - payments or transfers
+    - payment-method/card/bank changes
+    - loan, insurance, tax, legal, identity, or contract submissions
+    - subscription cancellations or commitments
+    - purchases
+    - account ownership/security changes
+
+secrets_policy:
+  agent_must_not_type:
+    - passwords
+    - recovery codes
+    - card numbers
+    - bank account details
+    - SSNs or tax IDs
+    - API keys or tokens
+    - two-factor codes unless the user explicitly provides and asks for that exact entry
+  default_handoff: manual_user_step
+
+approval_language:
+  accepted_examples:
+    - approve 1, 2
+    - approve A3
+    - approve 2 with edit: make it warmer
+    - defer 4 until Friday
+    - skip 5
+  interpretation: approvals apply only to exact action IDs and payloads in the latest Radar packet

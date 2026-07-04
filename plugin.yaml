@@ -1,0 +1,11 @@
+name: radar
+version: 1.0.0
+description: "Chief-of-staff care layer for Hermes: source-backed attention surface with approval-ready actions, care ledgers, metrics, and autonomous calendar management."
+author: Danservfinn
+kind: standalone
+provides_tools:
+  - radar_run
+  - radar_config
+  - radar_event
+provides_hooks:
+  - post_tool_call

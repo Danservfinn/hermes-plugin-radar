@@ -1,0 +1,269 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kurult.ai/schemas/radar-packet-v1.json",
+  "title": "RADAR_PACKET/v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "run_id",
+    "generated_at",
+    "run_mode",
+    "horizon",
+    "max_authority",
+    "care_state",
+    "standing_authority_snapshot",
+    "source_coverage",
+    "items",
+    "actions",
+    "already_handled",
+    "needs_you",
+    "quiet_watch",
+    "changes_since_last",
+    "metrics",
+    "approval_instructions"
+  ],
+  "properties": {
+    "schema": {"const": "RADAR_PACKET/v1"},
+    "schema_version": {"type": "string"},
+    "run_id": {"type": "string", "minLength": 1},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "run_mode": {
+      "type": "string",
+      "enum": ["morning", "evening", "weekly", "deep_work_shield", "travel", "shipping", "family_relationships", "finance_admin", "on_demand"]
+    },
+    "horizon": {
+      "type": "object",
+      "properties": {
+        "lookback_hours": {"type": "number", "minimum": 0},
+        "lookahead_hours": {"type": "number", "minimum": 0},
+        "description": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "interrupt_threshold": {"type": "string"},
+    "operator": {"type": "string"},
+    "profile": {"type": "string"},
+    "max_authority": {"$ref": "#/$defs/side_effect_class"},
+    "standing_authority_snapshot": {"type": "object", "additionalProperties": true},
+    "care_state": {"$ref": "#/$defs/care_state"},
+    "source_coverage": {"type": "array", "items": {"$ref": "#/$defs/source"}},
+    "items": {"type": "array", "items": {"$ref": "#/$defs/item"}},
+    "actions": {"type": "array", "items": {"$ref": "#/$defs/action"}},
+    "already_handled": {"type": "array", "items": {"$ref": "#/$defs/care_entry"}},
+    "needs_you": {"type": "array", "items": {"$ref": "#/$defs/need_entry"}},
+    "people_promises": {"type": "array", "items": {"$ref": "#/$defs/promise_entry"}},
+    "meeting_prep": {"type": "array", "items": {"$ref": "#/$defs/meeting_entry"}},
+    "travel_concierge": {"type": "array", "items": {"$ref": "#/$defs/travel_entry"}},
+    "finance_admin_sentinel": {"type": "array", "items": {"$ref": "#/$defs/finance_entry"}},
+    "projects_systems": {"type": "array", "items": {"$ref": "#/$defs/care_entry"}},
+    "quiet_watch": {"type": "array", "items": {"$ref": "#/$defs/care_entry"}},
+    "changes_since_last": {"type": "array", "items": {"$ref": "#/$defs/change_entry"}},
+    "open_questions": {"type": "array", "items": {"type": "string"}},
+    "metrics": {"type": "object", "additionalProperties": true},
+    "approval_instructions": {
+      "type": "object",
+      "required": ["examples", "scope"],
+      "properties": {
+        "examples": {"type": "array", "items": {"type": "string"}},
+        "scope": {"type": "string"}
+      },
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "side_effect_class": {
+      "type": "string",
+      "enum": ["read_only", "draft_only", "external_send", "runtime_mutation", "financial_or_legal", "destructive"]
+    },
+    "care_state": {
+      "type": "object",
+      "required": ["verdict", "one_sentence", "protect", "prepare", "propose", "close_loops"],
+      "properties": {
+        "verdict": {"type": "string", "enum": ["clear", "mostly_clear", "needs_attention", "fire_drill", "blocked"]},
+        "one_sentence": {"type": "string"},
+        "protect": {"type": "array", "items": {"type": "string"}},
+        "prepare": {"type": "array", "items": {"type": "string"}},
+        "propose": {"type": "array", "items": {"type": "string"}},
+        "close_loops": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": true
+    },
+    "source": {
+      "type": "object",
+      "required": ["source_id", "domain", "adapter", "status", "checked_at"],
+      "properties": {
+        "source_id": {"type": "string"},
+        "domain": {"type": "string"},
+        "adapter": {"type": "string"},
+        "status": {"type": "string", "enum": ["ok", "partial", "blocked_auth", "disabled_by_policy", "not_checked", "error"]},
+        "checked_at": {"type": "string"},
+        "horizon": {"type": "string"},
+        "query_or_scope": {"type": "string"},
+        "result_count": {"type": "integer", "minimum": 0},
+        "sample_refs": {"type": "array", "items": {"type": "string"}},
+        "privacy_tier": {"type": "string"},
+        "write_authority": {"type": "string"},
+        "failure_mode": {"type": ["string", "null"]},
+        "notes": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "item": {
+      "type": "object",
+      "required": ["item_id", "kind", "domain", "summary", "why_top_of_mind", "source_refs", "urgency", "leverage", "risk", "confidence", "status"],
+      "properties": {
+        "item_id": {"type": "string", "pattern": "^R[0-9]+$"},
+        "kind": {"type": "string", "enum": ["obligation", "opportunity", "risk", "waiting_on", "decision", "follow_up", "anomaly", "relationship", "metric", "idea"]},
+        "domain": {"$ref": "#/$defs/domain"},
+        "summary": {"type": "string"},
+        "why_top_of_mind": {"type": "string"},
+        "source_refs": {"type": "array", "items": {"type": "string"}},
+        "freshness": {"type": "string"},
+        "urgency": {"type": "number", "minimum": 0, "maximum": 5},
+        "leverage": {"type": "number", "minimum": 0, "maximum": 5},
+        "risk": {"type": "number", "minimum": 0, "maximum": 5},
+        "tractability": {"type": "number", "minimum": 0, "maximum": 5},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 5},
+        "compounding": {"type": "number", "minimum": 0, "maximum": 5},
+        "priority_score": {"type": "number"},
+        "owner": {"type": "string"},
+        "status": {"type": "string", "enum": ["new", "continuing", "waiting", "blocked", "done", "stale", "watching", "suppressed"]},
+        "next_check": {"type": "string"},
+        "care_bucket": {"type": "string", "enum": ["protect", "prepare", "propose", "close_loops", "watch"]},
+        "suppression_reason": {"type": ["string", "null"]},
+        "finance_event": {"type": "string"},
+        "sensitivity": {"type": "string"},
+        "requires_user_handoff": {"type": "boolean"}
+      },
+      "additionalProperties": true
+    },
+    "action": {
+      "type": "object",
+      "required": ["action_id", "number", "item_id", "title", "type", "side_effect_class", "approval_phrase", "verification", "status"],
+      "properties": {
+        "action_id": {"type": "string", "pattern": "^A[0-9]+$"},
+        "number": {"type": "integer", "minimum": 1},
+        "item_id": {"type": "string"},
+        "title": {"type": "string"},
+        "type": {"type": "string", "enum": ["message_draft", "email_reply", "calendar_event", "task", "research", "implementation", "review", "admin", "finance_review", "no_op_monitor", "question", "draft", "meeting_prep", "travel_handoff", "promise_followup"]},
+        "target": {"type": ["string", "null"]},
+        "side_effect_class": {"$ref": "#/$defs/side_effect_class"},
+        "exact_proposed_output": {"type": ["string", "null"]},
+        "draft_text": {"type": ["string", "null"]},
+        "approval_phrase": {"type": "string"},
+        "requires_confirmation_before_execute": {"type": "boolean"},
+        "verification": {"type": "string"},
+        "rollback_or_safety": {"type": "string"},
+        "metric_hook": {"type": "object", "additionalProperties": true},
+        "status": {"type": "string", "enum": ["proposed", "approved", "executed_verified", "executed_unverified", "blocked", "cancelled", "deferred", "partial", "failed_safe"]},
+        "financial_or_legal_scope": {"type": "string"},
+        "handoff_required": {"type": "boolean"}
+      },
+      "additionalProperties": true
+    },
+    "care_entry": {
+      "type": "object",
+      "required": ["entry_id", "summary", "status"],
+      "properties": {
+        "entry_id": {"type": "string"},
+        "item_id": {"type": "string"},
+        "action_id": {"type": "string"},
+        "domain": {"$ref": "#/$defs/domain"},
+        "summary": {"type": "string"},
+        "status": {"type": "string", "enum": ["handled", "prepared", "needs_approval", "watching", "suppressed", "waiting", "blocked", "resolved", "stale", "not_checked"]},
+        "source_refs": {"type": "array", "items": {"type": "string"}},
+        "next_check": {"type": "string"},
+        "notes": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "need_entry": {
+      "type": "object",
+      "required": ["number", "decision", "why", "reply"],
+      "properties": {
+        "number": {"type": "integer", "minimum": 1},
+        "action_id": {"type": "string"},
+        "decision": {"type": "string"},
+        "why": {"type": "string"},
+        "reply": {"type": "string"},
+        "verification": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "promise_entry": {
+      "type": "object",
+      "required": ["entry_id", "direction", "summary", "send_requires_approval"],
+      "properties": {
+        "entry_id": {"type": "string"},
+        "person_or_group_ref": {"type": "string"},
+        "relationship_tier": {"type": "string"},
+        "direction": {"type": "string", "enum": ["user_owes", "waiting_on_other", "mutual", "check_in"]},
+        "summary": {"type": "string"},
+        "source_refs": {"type": "array", "items": {"type": "string"}},
+        "due_or_sensitivity": {"type": "string"},
+        "proposed_action_id": {"type": "string"},
+        "send_requires_approval": {"type": "boolean"}
+      },
+      "additionalProperties": true
+    },
+    "meeting_entry": {
+      "type": "object",
+      "required": ["entry_id", "summary"],
+      "properties": {
+        "entry_id": {"type": "string"},
+        "calendar_ref": {"type": "string"},
+        "starts_at": {"type": "string"},
+        "summary": {"type": "string"},
+        "prep_notes_path": {"type": "string"},
+        "open_decisions": {"type": "array", "items": {"type": "string"}},
+        "followup_action_id": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "travel_entry": {
+      "type": "object",
+      "required": ["entry_id", "summary"],
+      "properties": {
+        "entry_id": {"type": "string"},
+        "trip_ref": {"type": "string"},
+        "summary": {"type": "string"},
+        "risk_level": {"type": "string", "enum": ["low", "medium", "high"]},
+        "manual_handoff_required": {"type": "boolean"},
+        "checklist": {"type": "array", "items": {"type": "string"}},
+        "source_refs": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": true
+    },
+    "finance_entry": {
+      "type": "object",
+      "required": ["entry_id", "finance_event", "class", "summary", "requires_user_handoff"],
+      "properties": {
+        "entry_id": {"type": "string"},
+        "finance_event": {"type": "string", "enum": ["payment_failed", "bill_due", "statement_available", "autopay_active", "suspicious_auth", "subscription_renewal", "subscription_price_change", "refund_or_claim_update", "cashflow_warning", "tax_or_legal_deadline", "no_action_required"]},
+        "class": {"type": "string", "enum": ["urgent_risk", "upcoming_obligation", "routine_noop", "opportunity", "manual_only"]},
+        "summary": {"type": "string"},
+        "sensitivity": {"type": "string"},
+        "redaction_policy": {"type": "string"},
+        "requires_user_handoff": {"type": "boolean"},
+        "proposed_action_id": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "change_entry": {
+      "type": "object",
+      "required": ["kind", "summary"],
+      "properties": {
+        "kind": {"type": "string", "enum": ["new", "escalated", "downgraded", "resolved", "still_blocked", "newly_stale", "source_coverage_changed"]},
+        "summary": {"type": "string"},
+        "item_id": {"type": "string"},
+        "source_refs": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": true
+    },
+    "domain": {
+      "type": "string",
+      "enum": ["brain", "finance", "parse", "yassa", "kurultai", "job_apps", "email", "messages", "calendar", "repos", "travel", "research", "relationship", "personal", "other"]
+    }
+  },
+  "additionalProperties": true
+}

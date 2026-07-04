@@ -1,0 +1,99 @@
+# Canonical Radar modes and interruption thresholds.
+
+version: 1.0.0
+
+modes:
+  morning:
+    horizon:
+      lookback_hours: 24
+      lookahead_hours: 72
+    interrupt_threshold: "P1+ decisions, people loops, deadlines, payment/security/travel risk"
+    emphasis:
+      - broad care sweep
+      - top decisions
+      - approval queue
+      - changed since last Radar
+  evening:
+    horizon:
+      lookback_hours: 16
+      lookahead_hours: 36
+    interrupt_threshold: "unresolved commitments and tomorrow prep"
+    emphasis:
+      - close loops
+      - prepare tomorrow
+      - follow-up drafts
+      - quiet watch
+  weekly:
+    horizon:
+      lookback_hours: 168
+      lookahead_hours: 336
+    interrupt_threshold: "strategic/stale/compounding issues"
+    emphasis:
+      - commander review
+      - stale loops
+      - metrics
+      - compounding opportunities
+  deep_work_shield:
+    horizon:
+      lookback_hours: 8
+      lookahead_hours: 8
+    interrupt_threshold: "P0 only: security/fraud, payment or service suspension, travel failure, people deadline, active incident"
+    emphasis:
+      - suppress noise
+      - interrupt only if truly worth it
+      - prepare but do not disturb
+  travel:
+    horizon:
+      lookback_hours: 72
+      lookahead_hours: 168
+    interrupt_threshold: "logistics, documents, check-in, payment, timing, weather, family/group coordination"
+    emphasis:
+      - concierge checklists
+      - confirmation status
+      - buffers and timezone risks
+      - manual-only payment/identity handoffs
+  shipping:
+    horizon:
+      lookback_hours: 24
+      lookahead_hours: 72
+    interrupt_threshold: "repo/service/build/review blockers and launch-critical decisions"
+    emphasis:
+      - project/system execution
+      - repo status
+      - CI/service health
+      - approval-ready implementation actions
+  family_relationships:
+    horizon:
+      lookback_hours: 72
+      lookahead_hours: 168
+    interrupt_threshold: "emotionally/socially costly misses, birthdays, replies, family logistics"
+    emphasis:
+      - people and promises
+      - warm drafts
+      - reminders
+      - draft-only sends
+  finance_admin:
+    horizon:
+      lookback_hours: 168
+      lookahead_hours: 720
+    interrupt_threshold: "payment failure, fraud/security, legal/tax, service suspension, cashflow, insurance/claim blockers"
+    emphasis:
+      - sentinel classification
+      - redacted summaries
+      - manual handoff checklists
+      - suppress routine statements/no-op confirmations
+  on_demand:
+    horizon:
+      lookback_hours: 24
+      lookahead_hours: 72
+    interrupt_threshold: "user intent from current prompt"
+    emphasis:
+      - adapt to prompt
+      - preserve authority boundaries
+      - approval-ready actions
+
+severity:
+  P0: "urgent, interrupt now"
+  P1: "needs the user in this brief"
+  P2: "prepare/watch; no interruption"
+  P3: "suppress unless asked or new evidence appears"
