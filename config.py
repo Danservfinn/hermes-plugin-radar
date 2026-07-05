@@ -171,10 +171,12 @@ def validate_config(config: dict[str, Any]) -> tuple[bool, list[str]]:
         if not cal.get("calendar_id"):
             errors.append("calendar.calendar_id must be set when calendar is enabled")
 
-    # sources — at least one should be enabled
+    # sources — at least one should be enabled, unless in bootstrap mode
     sources = r.get("sources", {})
     enabled_count = sum(1 for s in sources.values() if isinstance(s, dict) and s.get("enabled"))
-    if enabled_count == 0:
+    is_bootstrap = r.get("bootstrap_mode") == "draft_only" or \
+                   r.get("sources_policy") == "disabled_until_authorized"
+    if enabled_count == 0 and not is_bootstrap:
         errors.append("No sources enabled — Radar needs at least one source adapter")
 
     return len(errors) == 0, errors

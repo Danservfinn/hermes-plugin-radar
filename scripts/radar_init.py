@@ -2,13 +2,18 @@
 """Radar onboarding wizard — generates radar_config.yaml interactively.
 
 Usage:
-    python scripts/radar_init.py [--non-interactive]
+    python scripts/radar_init.py                 # Interactive wizard
+    python scripts/radar_init.py --non-interactive  # Safe auto-detect defaults
+    python scripts/radar_init.py --draft-only    # Zero sources, zero schedules, draft-only
+    python scripts/radar_init.py --draft-only --artifact-root /path/to/Brain/status/radar
 
-Non-interactive mode generates a config with safe defaults.
+The wizard detects available sources (Google Workspace, remindctl, etc.)
+and lets you choose which to enable. All configs start read_only + draft_only.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import platform
@@ -35,8 +40,34 @@ def get_hermes_home() -> Path:
     return Path.home() / ".hermes"
 
 
+def get_brain_root() -> Path | None:
+    """Detect canonical Brain root. Prefer ~/Brain over ~/brain."""
+    home = Path.home()
+    candidates = [
+        home / "Brain",
+        home / "brain",
+        Path("/Users") / os.environ.get("USER", "") / "Brain",
+    ]
+    # Also check BRAIN_ROOT env var
+    env_brain = os.environ.get("BRAIN_ROOT")
+    if env_brain:
+        candidates.insert(0, Path(env_brain))
+    for c in candidates:
+        if c.exists() and c.is_dir():
+            return c
+    return None
+
+
+def get_default_artifact_root() -> str:
+    """Prefer Brain/status/radar if Brain exists, else HERMES_HOME/radar."""
+    brain = get_brain_root()
+    if brain:
+        return str(brain / "status" / "radar")
+    return str(get_hermes_home() / "radar")
+
+
 def prompt(question: str, default: str = "") -> str:
-    """Ask a yes/no or open question with optional default."""
+    """Ask an open question with optional default."""
     suffix = f" [{default}]" if default else ""
     try:
         answer = input(f"{question}{suffix}: ").strip()
@@ -101,17 +132,87 @@ def test_google_api(api_path: Path, python: str, cmd: str) -> tuple[bool, str]:
         return False, str(e)[:200]
 
 
-def generate_config(non_interactive: bool = False) -> dict:
-    """Generate a Radar configuration."""
+def generate_draft_only_config(artifact_root: str | None = None) -> dict:
+    """Generate a minimal draft-only config with zero sources and zero schedules."""
+    ar = artifact_root or get_default_artifact_root()
+    return {
+        "radar": {
+            "artifact_root": ar,
+            "default_mode": "morning",
+            "bootstrap_mode": "draft_only",
+            "sources_policy": "disabled_until_authorized",
+            "calendar": {
+                "enabled": False,
+                "calendar_id": "primary",
+                "autonomous_create": False,
+                "autonomous_delete_own": False,
+                "max_events_per_run": 5,
+                "max_deletes_per_run": 3,
+                "lookahead_hours": 96,
+                "prep_window_hours": 36,
+            },
+            "sources": {
+                "brain": {"enabled": False, "wiki_root": None},
+                "email": {"enabled": False, "search_window_days": 3, "max_threads": 15},
+                "calendar": {"enabled": False},
+                "reminders": {"enabled": False, "horizon": "week"},
+                "messages": {"enabled": False, "platforms": []},
+                "finance": {"enabled": False, "adapter": "email_alerts"},
+                "repos": {"enabled": False, "monitored_repos": []},
+                "travel": {"enabled": False},
+                "research": {"enabled": False},
+                "relationships": {"enabled": False, "important_dates": []},
+            },
+            "authority": {
+                "read_only": True,
+                "draft_only": True,
+                "external_send": False,
+                "runtime_mutation": False,
+                "financial_or_legal": False,
+                "destructive": False,
+            },
+            "approval": {
+                "grammar": "approve {number}",
+                "accepted_forms": [
+                    "approve N", "approve AN", "approve N-M",
+                    "skip N", "defer N until {date}",
+                ],
+            },
+            "schedule": {
+                "morning": {"enabled": False, "cron": "0 7 * * *", "mode": "morning"},
+                "evening": {"enabled": False, "cron": "0 19 * * *", "mode": "evening"},
+                "interrupt_checker": {
+                    "enabled": False,
+                    "cron": "*/30 * * * *",
+                    "script": "radar_watch_sources.py",
+                    "deliver": "local",
+                },
+            },
+            "metrics": {"enabled": True, "feedback_log": True},
+        }
+    }
+
+
+def generate_config(
+    non_interactive: bool = False,
+    artifact_root_override: str | None = None,
+) -> dict:
+    """Generate a Radar configuration interactively or with auto-detected defaults."""
 
     hh = get_hermes_home()
     is_mac = is_macos()
     python = find_python3()
     google_api = find_google_api()
+    brain = get_brain_root()
 
-    # Defaults
-    artifact_root = str(hh / "radar")
-    wiki_root = None
+    # Determine artifact root — prefer Brain, then override, then HERMES_HOME
+    default_ar = str(brain / "status" / "radar") if brain else str(hh / "radar")
+    artifact_root = artifact_root_override or default_ar
+
+    # Wiki root
+    wiki_root = str(brain) if brain else None
+
+    # Source flags — all start False
     enable_email = False
     enable_calendar = False
     enable_reminders = False
@@ -124,11 +225,19 @@ def generate_config(non_interactive: bool = False) -> dict:
     important_dates: list[dict] = []
     autonomous_calendar = False
 
+    # Schedule flags — all start True (interactive), False (non-interactive)
+    schedule_morning = True
+    schedule_evening = True
+    schedule_interrupts = True
+
     if not non_interactive:
         print()
         print("🛡️  Radar Setup Wizard")
         print()
         print(f"This will create your Radar configuration at {hh / 'radar_config.yaml'}")
+        print()
+        if brain:
+            print(f"📍 Detected Brain root: {brain}")
         print()
 
         # 1. Artifact root
@@ -139,7 +248,7 @@ def generate_config(non_interactive: bool = False) -> dict:
 
         # 2. Wiki/notes
         if yes_no("2. Do you have a notes/wiki directory?"):
-            wiki_root = prompt("   Path", str(Path.home() / "notes"))
+            wiki_root = prompt("   Path", wiki_root or str(Path.home() / "notes"))
             if not Path(os.path.expanduser(wiki_root)).exists():
                 print(f"   ⚠️  Path does not exist yet: {wiki_root}")
 
@@ -193,20 +302,22 @@ def generate_config(non_interactive: bool = False) -> dict:
         # 8. Travel
         enable_travel = yes_no("\n8. Enable travel concierge?")
 
-        # 9. Schedule
+        # 9. Schedule — capture actual answers
         print("\n9. Schedule:")
-        morning = yes_no("   Morning brief at 7am?", default=True)
-        evening = yes_no("   Evening brief at 7pm?", default=True)
-        interrupts = yes_no("   30-min interrupt checker?", default=True)
+        schedule_morning = yes_no("   Morning brief at 7am?", default=True)
+        schedule_evening = yes_no("   Evening brief at 7pm?", default=True)
+        schedule_interrupts = yes_no("   30-min interrupt checker?", default=True)
     else:
-        # Non-interactive: enable what's available
+        # Non-interactive: auto-detect what's available, no schedules
         if google_api:
             enable_email = True
             enable_calendar = True
         if is_mac and shutil.which("remindctl"):
             enable_reminders = True
-        if wiki_root is None:
-            wiki_root = str(Path.home() / "notes")
+        # Non-interactive = safe = no scheduled jobs
+        schedule_morning = False
+        schedule_evening = False
+        schedule_interrupts = False
 
     # Build config
     config = {
@@ -280,19 +391,19 @@ def generate_config(non_interactive: bool = False) -> dict:
             },
             "schedule": {
                 "morning": {
-                    "enabled": not non_interactive or True,
+                    "enabled": schedule_morning,
                     "cron": "0 7 * * *",
                     "mode": "morning",
                     "deliver": "telegram",
                 },
                 "evening": {
-                    "enabled": not non_interactive or True,
+                    "enabled": schedule_evening,
                     "cron": "0 19 * * *",
                     "mode": "evening",
                     "deliver": "telegram",
                 },
                 "interrupt_checker": {
-                    "enabled": True,
+                    "enabled": schedule_interrupts,
                     "cron": "*/30 * * * *",
                     "script": "radar_watch_sources.py",
                     "deliver": "local",
@@ -305,20 +416,26 @@ def generate_config(non_interactive: bool = False) -> dict:
         }
     }
 
-    if non_interactive:
-        # Adjust schedule based on flags
-        if not non_interactive:
-            config["radar"]["schedule"]["morning"]["enabled"] = morning if 'morning' in dir() else True
-            config["radar"]["schedule"]["evening"]["enabled"] = evening if 'evening' in dir() else True
-            config["radar"]["schedule"]["interrupt_checker"]["enabled"] = interrupts if 'interrupts' in dir() else True
-
     return config
 
 
 def main():
-    non_interactive = "--non-interactive" in sys.argv
+    parser = argparse.ArgumentParser(description="Radar onboarding wizard")
+    parser.add_argument("--non-interactive", action="store_true",
+                        help="Auto-detect sources, safe defaults, no schedules")
+    parser.add_argument("--draft-only", action="store_true",
+                        help="Zero sources, zero schedules, draft-only scaffolding")
+    parser.add_argument("--artifact-root", type=str, default=None,
+                        help="Override artifact root path")
+    args = parser.parse_args()
 
-    config = generate_config(non_interactive=non_interactive)
+    if args.draft_only:
+        config = generate_draft_only_config(artifact_root=args.artifact_root)
+    else:
+        config = generate_config(
+            non_interactive=args.non_interactive,
+            artifact_root_override=args.artifact_root,
+        )
 
     config_path = get_hermes_home() / "radar_config.yaml"
     config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -335,7 +452,6 @@ def main():
     print(f"✅ Configuration written to {config_path}")
 
     # Validate
-    from pathlib import Path
     sys.path.insert(0, str(Path(__file__).parent.parent))
     try:
         from config import validate_config
@@ -343,17 +459,27 @@ def main():
         if is_valid:
             print("✅ Configuration is valid")
         else:
-            print("⚠️  Configuration has issues:")
+            # In draft-only/bootstrap mode, "no sources enabled" is expected
+            is_bootstrap = config["radar"].get("bootstrap_mode") == "draft_only" or \
+                           config["radar"].get("sources_policy") == "disabled_until_authorized"
             for e in errors:
-                print(f"   - {e}")
+                if "No sources enabled" in e and is_bootstrap:
+                    print(f"ℹ️  {e} (expected in draft-only/bootstrap mode)")
+                else:
+                    print(f"⚠️  {e}")
     except Exception:
         pass
 
     enabled_sources = [k for k, v in config["radar"]["sources"].items() if isinstance(v, dict) and v.get("enabled")]
+    enabled_schedules = [k for k, v in config["radar"]["schedule"].items() if isinstance(v, dict) and v.get("enabled")]
+
     print()
     print(f"Enabled sources: {', '.join(enabled_sources) or 'none'}")
+    print(f"Enabled schedules: {', '.join(enabled_schedules) or 'none'}")
     print(f"Authority: read_only + draft_only (safe defaults)")
     print(f"Calendar autonomy: {'ON' if config['radar']['calendar']['autonomous_create'] else 'OFF'}")
+    if config["radar"].get("bootstrap_mode"):
+        print(f"Mode: {config['radar']['bootstrap_mode']}")
     print()
     print("To run your first sweep:")
     print("  /skill radar")

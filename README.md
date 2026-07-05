@@ -11,7 +11,13 @@ hermes plugins install Danservfinn/hermes-plugin-radar --enable
 After installation, run the onboarding wizard:
 
 ```bash
-python ~/.hermes/plugins/radar/scripts/radar_init.py
+python "${HERMES_HOME:-$HOME/.hermes}/plugins/radar/scripts/radar_init.py"
+```
+
+Or in draft-only safe bootstrap mode (no sources, no schedules, just scaffolding):
+
+```bash
+python "${HERMES_HOME:-$HOME/.hermes}/plugins/radar/scripts/radar_init.py" --draft-only
 ```
 
 Or configure manually — see [Configuration](#configuration) below.
@@ -30,7 +36,7 @@ Radar is **not** a briefing generator or a summary bot. It's a chief-of-staff ca
 ## Quick Start
 
 1. **Install:** `hermes plugins install Danservfinn/hermes-plugin-radar --enable`
-2. **Configure:** `python ~/.hermes/plugins/radar/scripts/radar_init.py`
+2. **Configure:** `python "${HERMES_HOME:-$HOME/.hermes}/plugins/radar/scripts/radar_init.py"`
 3. **Run:** In Hermes, type `/skill radar` then say "run radar morning"
 4. **Approve:** Reply with `approve 1, 3` to approve specific actions
 
